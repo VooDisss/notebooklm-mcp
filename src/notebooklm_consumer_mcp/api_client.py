@@ -1,66 +1,7 @@
 #!/usr/bin/env python3
-"""
-POC for Consumer NotebookLM (notebooklm.google.com) internal API.
+"""Consumer NotebookLM API client (notebooklm.google.com).
 
-This is a research POC - NOT for production use. The API is undocumented
-and may change at any time.
-
-IMPORTANT: This is a SEPARATE system from NotebookLM Enterprise (Vertex AI).
-- Consumer: notebooklm.google.com (this POC)
-- Enterprise: vertexaisearch.cloud.google.com/notebooklm/ (the MCP server)
-
-## API Discovery Summary
-
-Endpoint: https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute
-Method: POST (application/x-www-form-urlencoded)
-
-Request format:
-  - f.req: URL-encoded JSON [[["rpc_id", "params_json", null, "generic"]]]
-  - at: CSRF token (from WIZ_global_data.SNlM0e in page)
-  - URL params: rpcids, source-path, bl (build), f.sid, hl, rt
-
-Known RPC IDs:
-  - wXbhsf: List notebooks with sources (returns ALL notebooks, filtering is client-side)
-  - rLM1Ne: Get notebook details
-  - CCqFvf: Create new notebook
-  - izAoDd: Add source (URL, text, or Drive) - unified RPC for all source types
-  - hPTbtc: Get conversation IDs
-  - hT54vc: User preferences (filter settings)
-  - ZwVcOc: Settings/preferences
-  - ozz5Z: Subscription info
-
-Query Endpoint (streaming, NOT batchexecute):
-  - POST /_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed
-  - Params: [[[source_ids]], query_text, null, [2, null, [1]], conversation_id]
-  - Response: Streaming JSON with thinking steps + final answer with citations
-
-Source Types (via izAoDd):
-  - URL/YouTube: [null, null, [urls], null, null, null, null, null, null, null, 1]
-  - Pasted Text: [null, [title, content], null, 2, null, null, null, null, null, null, 1]
-  - Google Drive: [[doc_id, mime_type, 1, title], null, null, null, null, null, null, null, null, null, 1]
-
-Filtering:
-  - "My notebooks" vs "Shared with me" filtering is done CLIENT-SIDE
-  - The list response includes ownership info that can be used to filter
-  - No API parameter to filter by ownership
-
-Response format:
-  - Starts with ")]}'" (anti-XSSI prefix)
-  - Followed by byte count, then JSON array
-
-Authentication:
-  - Cookie-based: SID, SSID, HSID, APISID, SAPISID, OSID, etc.
-  - CSRF token required (changes per page load)
-  - Session ID (f.sid) required
-
-## Usage
-
-1. Log in to notebooklm.google.com in Chrome
-2. Open DevTools > Network tab
-3. Find any POST to /_/LabsTailwindUi/data/batchexecute
-4. Copy the Cookie header value
-5. Copy CSRF token (at= in request body) and session ID (f.sid= in URL)
-6. Run: python consumer_notebooklm.py 'COOKIE_HEADER'
+Reverse-engineered internal API. See CLAUDE.md for full documentation.
 """
 
 import json
@@ -74,8 +15,8 @@ import httpx
 
 
 # Ownership constants (from metadata position 0)
-OWNERSHIP_MINE = 1          # Created by me
-OWNERSHIP_SHARED = 2        # Shared with me by someone else
+OWNERSHIP_MINE = 1
+OWNERSHIP_SHARED = 2
 
 
 @dataclass
@@ -92,12 +33,6 @@ class ConversationTurn:
 
 def parse_timestamp(ts_array: list | None) -> str | None:
     """Convert [seconds, nanoseconds] timestamp array to ISO format string.
-
-    Args:
-        ts_array: Array like [1766621224, 821240000] (seconds, nanos since epoch)
-
-    Returns:
-        ISO format datetime string like "2025-12-24T15:27:04Z" or None if invalid
     """
     if not ts_array or not isinstance(ts_array, list) or len(ts_array) < 1:
         return None
@@ -171,19 +106,13 @@ class ConsumerNotebookLMClient:
     # Research source types
     RESEARCH_SOURCE_WEB = 1
     RESEARCH_SOURCE_DRIVE = 2
-
-    # Research modes
     RESEARCH_MODE_FAST = 1
     RESEARCH_MODE_DEEP = 5
-
-    # Research result types (from poll response)
     RESULT_TYPE_WEB = 1
     RESULT_TYPE_GOOGLE_DOC = 2
     RESULT_TYPE_GOOGLE_SLIDES = 3
     RESULT_TYPE_DEEP_REPORT = 5
     RESULT_TYPE_GOOGLE_SHEETS = 8
-
-    # Studio RPCs (Audio/Video Overviews)
     RPC_CREATE_STUDIO = "R7cb6c"   # Create Audio or Video Overview
     RPC_POLL_STUDIO = "gArtLc"     # Poll for studio content status
     RPC_DELETE_STUDIO = "V5N4be"   # Delete Audio or Video Overview
@@ -191,21 +120,17 @@ class ConsumerNotebookLMClient:
     # Studio content types
     STUDIO_TYPE_AUDIO = 1
     STUDIO_TYPE_VIDEO = 3
-
-    # Audio Overview formats
-    AUDIO_FORMAT_DEEP_DIVE = 1   # Lively conversation between two hosts
-    AUDIO_FORMAT_BRIEF = 2       # Bite-sized overview of core ideas
-    AUDIO_FORMAT_CRITIQUE = 3    # Expert review offering feedback
-    AUDIO_FORMAT_DEBATE = 4      # Thoughtful debate with different perspectives
+    AUDIO_FORMAT_DEEP_DIVE = 1
+    AUDIO_FORMAT_BRIEF = 2
+    AUDIO_FORMAT_CRITIQUE = 3
+    AUDIO_FORMAT_DEBATE = 4
 
     # Audio Overview lengths
     AUDIO_LENGTH_SHORT = 1
     AUDIO_LENGTH_DEFAULT = 2
     AUDIO_LENGTH_LONG = 3
-
-    # Video Overview formats
-    VIDEO_FORMAT_EXPLAINER = 1   # Structured, comprehensive overview
-    VIDEO_FORMAT_BRIEF = 2       # Bite-sized overview of core ideas
+    VIDEO_FORMAT_EXPLAINER = 1
+    VIDEO_FORMAT_BRIEF = 2
 
     # Video visual styles
     VIDEO_STYLE_AUTO_SELECT = 1
@@ -218,14 +143,10 @@ class ConsumerNotebookLMClient:
     VIDEO_STYLE_RETRO_PRINT = 8
     VIDEO_STYLE_HERITAGE = 9
     VIDEO_STYLE_PAPER_CRAFT = 10
-
-    # Additional Studio types (also created via RPC_CREATE_STUDIO)
     STUDIO_TYPE_REPORT = 2
     STUDIO_TYPE_FLASHCARDS = 4
     STUDIO_TYPE_INFOGRAPHIC = 7
     STUDIO_TYPE_SLIDE_DECK = 8
-
-    # Mind Map RPCs (separate from R7cb6c)
     RPC_GENERATE_MIND_MAP = "yyryJe"  # Generate mind map JSON from sources
     RPC_SAVE_MIND_MAP = "CYK0Xb"      # Save generated mind map to notebook
     RPC_LIST_MIND_MAPS = "cFji9"       # List existing mind maps
@@ -240,43 +161,35 @@ class ConsumerNotebookLMClient:
     FLASHCARD_DIFFICULTY_EASY = 1
     FLASHCARD_DIFFICULTY_MEDIUM = 2
     FLASHCARD_DIFFICULTY_HARD = 3
-
-    # Flashcard count code
     FLASHCARD_COUNT_DEFAULT = 2
-
-    # Infographic orientation codes
     INFOGRAPHIC_ORIENTATION_LANDSCAPE = 1
     INFOGRAPHIC_ORIENTATION_PORTRAIT = 2
     INFOGRAPHIC_ORIENTATION_SQUARE = 3
-
-    # Infographic detail level codes
     INFOGRAPHIC_DETAIL_CONCISE = 1
     INFOGRAPHIC_DETAIL_STANDARD = 2
     INFOGRAPHIC_DETAIL_DETAILED = 3
-
-    # Slide Deck format codes
-    SLIDE_DECK_FORMAT_DETAILED = 1      # Comprehensive deck with full text and details
-    SLIDE_DECK_FORMAT_PRESENTER = 2     # Clean visual slides with key talking points
+    SLIDE_DECK_FORMAT_DETAILED = 1
+    SLIDE_DECK_FORMAT_PRESENTER = 2
 
     # Slide Deck length codes
     SLIDE_DECK_LENGTH_SHORT = 1
-    SLIDE_DECK_LENGTH_DEFAULT = 3       # Note: Default is 3, not 2
+    SLIDE_DECK_LENGTH_DEFAULT = 3
 
     # Chat configuration goal/style codes
-    CHAT_GOAL_DEFAULT = 1         # General purpose research and brainstorming
-    CHAT_GOAL_CUSTOM = 2          # Custom prompt (up to 10000 chars)
-    CHAT_GOAL_LEARNING_GUIDE = 3  # Educational focus
+    CHAT_GOAL_DEFAULT = 1
+    CHAT_GOAL_CUSTOM = 2
+    CHAT_GOAL_LEARNING_GUIDE = 3
 
     # Chat configuration response length codes
-    CHAT_RESPONSE_DEFAULT = 1     # Default response length
-    CHAT_RESPONSE_LONGER = 4      # Verbose/longer responses
-    CHAT_RESPONSE_SHORTER = 5     # Concise/shorter responses
+    CHAT_RESPONSE_DEFAULT = 1
+    CHAT_RESPONSE_LONGER = 4
+    CHAT_RESPONSE_SHORTER = 5
 
     # Source type constants (from metadata position 4)
     # These represent the Google Workspace document type, NOT the source origin
-    SOURCE_TYPE_GOOGLE_DOCS = 1           # Google Docs (Documents)
-    SOURCE_TYPE_GOOGLE_OTHER = 2          # Google Slides & Sheets (non-Doc Drive files)
-    SOURCE_TYPE_PASTED_TEXT = 4           # Pasted text (not from Drive)
+    SOURCE_TYPE_GOOGLE_DOCS = 1
+    SOURCE_TYPE_GOOGLE_OTHER = 2
+    SOURCE_TYPE_PASTED_TEXT = 4
 
     # Query endpoint (different from batchexecute - streaming gRPC-style)
     QUERY_ENDPOINT = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
@@ -433,7 +346,6 @@ class ConsumerNotebookLMClient:
         # Use separators to match Chrome's compact format (no spaces)
         params_json = json.dumps(params, separators=(',', ':'))
 
-        # Build the f.req structure
         f_req = [[[rpc_id, params_json, None, "generic"]]]
         f_req_json = json.dumps(f_req, separators=(',', ':'))
 
@@ -515,7 +427,6 @@ class ConsumerNotebookLMClient:
                 for item in chunk:
                     if isinstance(item, list) and len(item) >= 3:
                         if item[0] == "wrb.fr" and item[1] == rpc_id:
-                            # The result is in item[2] as a JSON string
                             result_str = item[2]
                             if isinstance(result_str, str):
                                 try:
@@ -524,6 +435,25 @@ class ConsumerNotebookLMClient:
                                     return result_str
                             return result_str
         return None
+
+    def _call_rpc(
+        self,
+        rpc_id: str,
+        params: Any,
+        path: str = "/",
+        timeout: float | None = None,
+    ) -> Any:
+        """Execute an RPC call and return the extracted result."""
+        client = self._get_client()
+        body = self._build_request_body(rpc_id, params)
+        url = self._build_url(rpc_id, path)
+        if timeout:
+            response = client.post(url, content=body, timeout=timeout)
+        else:
+            response = client.post(url, content=body)
+        response.raise_for_status()
+        parsed = self._parse_response(response.text)
+        return self._extract_rpc_result(parsed, rpc_id)
 
     # =========================================================================
     # Conversation Management (for query follow-ups)
@@ -561,12 +491,7 @@ class ConsumerNotebookLMClient:
         self, conversation_id: str, query: str, answer: str
     ) -> None:
         """Cache a conversation turn for future follow-up queries.
-
-        Args:
-            conversation_id: The conversation ID
-            query: The user's question
-            answer: The AI's response
-        """
+    """
         if conversation_id not in self._conversation_cache:
             self._conversation_cache[conversation_id] = []
 
@@ -576,13 +501,7 @@ class ConsumerNotebookLMClient:
 
     def clear_conversation(self, conversation_id: str) -> bool:
         """Clear the conversation cache for a specific conversation.
-
-        Args:
-            conversation_id: The conversation ID to clear
-
-        Returns:
-            True if conversation was found and cleared, False if not found
-        """
+    """
         if conversation_id in self._conversation_cache:
             del self._conversation_cache[conversation_id]
             return True
@@ -590,13 +509,7 @@ class ConsumerNotebookLMClient:
 
     def get_conversation_history(self, conversation_id: str) -> list[dict] | None:
         """Get the conversation history for a specific conversation.
-
-        Args:
-            conversation_id: The conversation ID
-
-        Returns:
-            List of dicts with query/answer pairs, or None if not found
-        """
+    """
         turns = self._conversation_cache.get(conversation_id)
         if not turns:
             return None
@@ -614,7 +527,6 @@ class ConsumerNotebookLMClient:
         """List all notebooks."""
         client = self._get_client()
 
-        # Build request
         # [null, 1, null, [2]] - params for list notebooks
         params = [None, 1, None, [2]]
         body = self._build_request_body(self.RPC_LIST_NOTEBOOKS, params)
@@ -645,8 +557,6 @@ class ConsumerNotebookLMClient:
 
         notebooks = []
         if result and isinstance(result, list):
-            # Result structure: [[notebook1, notebook2, ...]]
-            # Each notebook structure:
             #   [0] = "Title"
             #   [1] = [sources]
             #   [2] = "notebook-uuid"
@@ -661,7 +571,6 @@ class ConsumerNotebookLMClient:
                     sources_data = nb_data[1] if len(nb_data) > 1 else []
                     notebook_id = nb_data[2] if len(nb_data) > 2 else None
 
-                    # Extract ownership and timestamps from metadata at position 5
                     is_owned = True  # Default to owned
                     is_shared = False  # Default to not shared
                     created_at = None
@@ -679,7 +588,6 @@ class ConsumerNotebookLMClient:
                         if len(metadata) > 1:
                             is_shared = bool(metadata[1])
 
-                        # Extract timestamps from metadata
                         # metadata[5] = [seconds, nanos] = last modified
                         # metadata[8] = [seconds, nanos] = created
                         if len(metadata) > 5:
@@ -718,47 +626,18 @@ class ConsumerNotebookLMClient:
         return notebooks
 
     def get_notebook(self, notebook_id: str) -> dict | None:
-        """Get details of a specific notebook."""
-        client = self._get_client()
-
-        # [notebook_id, null, [2], null, 0]
-        params = [notebook_id, None, [2], None, 0]
-        body = self._build_request_body(self.RPC_GET_NOTEBOOK, params)
-        url = self._build_url(self.RPC_GET_NOTEBOOK, f"/notebook/{notebook_id}")
-
-        response = client.post(url, content=body)
-        response.raise_for_status()
-
-        parsed = self._parse_response(response.text)
-        result = self._extract_rpc_result(parsed, self.RPC_GET_NOTEBOOK)
-
-        return result
+        """Get notebook details."""
+        return self._call_rpc(
+            self.RPC_GET_NOTEBOOK,
+            [notebook_id, None, [2], None, 0],
+            f"/notebook/{notebook_id}",
+        )
 
     def get_notebook_summary(self, notebook_id: str) -> dict[str, Any]:
-        """Get AI-generated summary and suggested report topics for a notebook.
-
-        Args:
-            notebook_id: The notebook UUID
-
-        Returns:
-            Dict with:
-            - summary: AI-generated notebook summary (markdown formatted)
-            - suggested_topics: List of dicts with 'question' and 'prompt' keys
-        """
-        client = self._get_client()
-
-        # Params: [notebook_id, [2]]
-        params = [notebook_id, [2]]
-        body = self._build_request_body(self.RPC_GET_SUMMARY, params)
-        url = self._build_url(self.RPC_GET_SUMMARY, f"/notebook/{notebook_id}")
-
-        response = client.post(url, content=body)
-        response.raise_for_status()
-
-        parsed = self._parse_response(response.text)
-        result = self._extract_rpc_result(parsed, self.RPC_GET_SUMMARY)
-
-        # Extract summary and topics
+        """Get AI-generated summary and suggested topics for a notebook."""
+        result = self._call_rpc(
+            self.RPC_GET_SUMMARY, [notebook_id, [2]], f"/notebook/{notebook_id}"
+        )
         summary = ""
         suggested_topics = []
 
@@ -783,47 +662,19 @@ class ConsumerNotebookLMClient:
         }
 
     def get_source_guide(self, source_id: str) -> dict[str, Any]:
-        """Get AI-generated summary and keyword chips for a specific source.
-
-        This is the "Source Guide" feature shown when clicking on a source in NotebookLM.
-
-        Args:
-            source_id: The source UUID
-
-        Returns:
-            Dict with:
-            - summary: AI-generated summary with **bold** markdown keywords
-            - keywords: List of keyword chip strings
-        """
-        client = self._get_client()
-
-        # Params: [[[[source_id]]]]  - Deeply nested source ID
-        params = [[[[source_id]]]]
-        body = self._build_request_body(self.RPC_GET_SOURCE_GUIDE, params)
-        url = self._build_url(self.RPC_GET_SOURCE_GUIDE, "/")
-
-        response = client.post(url, content=body)
-        response.raise_for_status()
-
-        parsed = self._parse_response(response.text)
-        result = self._extract_rpc_result(parsed, self.RPC_GET_SOURCE_GUIDE)
-
-        # Extract summary and keywords
+        """Get AI-generated summary and keywords for a source."""
+        result = self._call_rpc(self.RPC_GET_SOURCE_GUIDE, [[[[source_id]]]], "/")
         summary = ""
         keywords = []
 
         if result and isinstance(result, list):
-            # Result structure: [[[null, [summary], [[keywords]], []]]]
-            # Need to go TWO levels deep to get to the actual data
             if len(result) > 0 and isinstance(result[0], list):
                 if len(result[0]) > 0 and isinstance(result[0][0], list):
                     inner = result[0][0]
 
-                    # Extract summary from position 1
                     if len(inner) > 1 and isinstance(inner[1], list) and len(inner[1]) > 0:
                         summary = inner[1][0]
 
-                    # Extract keywords from position 2
                     if len(inner) > 2 and isinstance(inner[2], list) and len(inner[2]) > 0:
                         keywords = inner[2][0] if isinstance(inner[2][0], list) else []
 
@@ -833,29 +684,10 @@ class ConsumerNotebookLMClient:
         }
 
     def create_notebook(self, title: str = "") -> ConsumerNotebook | None:
-        """Create a new notebook.
-
-        Args:
-            title: Optional title for the notebook (empty string for "Untitled notebook")
-
-        Returns:
-            ConsumerNotebook with the new notebook's ID, or None on failure
-        """
-        client = self._get_client()
-
-        # Create notebook params: [title, null, null, [2], [1, null, null, null, null, null, null, null, null, null, [1]]]
+        """Create a new notebook."""
         params = [title, None, None, [2], [1, None, None, None, None, None, None, None, None, None, [1]]]
-        body = self._build_request_body(self.RPC_CREATE_NOTEBOOK, params)
-        url = self._build_url(self.RPC_CREATE_NOTEBOOK)
-
-        response = client.post(url, content=body)
-        response.raise_for_status()
-
-        parsed = self._parse_response(response.text)
-        result = self._extract_rpc_result(parsed, self.RPC_CREATE_NOTEBOOK)
-
+        result = self._call_rpc(self.RPC_CREATE_NOTEBOOK, params)
         if result and isinstance(result, list) and len(result) >= 3:
-            # Response: ["", null, "notebook-uuid", ...]
             notebook_id = result[2]
             if notebook_id:
                 return ConsumerNotebook(
@@ -867,29 +699,9 @@ class ConsumerNotebookLMClient:
         return None
 
     def rename_notebook(self, notebook_id: str, new_title: str) -> bool:
-        """Rename a notebook.
-
-        Args:
-            notebook_id: The notebook UUID
-            new_title: The new title for the notebook
-
-        Returns:
-            True on success, False on failure
-        """
-        client = self._get_client()
-
-        # Rename notebook params: [notebook_id, [[null, null, null, [null, "New Title"]]]]
+        """Rename a notebook."""
         params = [notebook_id, [[None, None, None, [None, new_title]]]]
-        body = self._build_request_body(self.RPC_RENAME_NOTEBOOK, params)
-        url = self._build_url(self.RPC_RENAME_NOTEBOOK, f"/notebook/{notebook_id}")
-
-        response = client.post(url, content=body)
-        response.raise_for_status()
-
-        parsed = self._parse_response(response.text)
-        result = self._extract_rpc_result(parsed, self.RPC_RENAME_NOTEBOOK)
-
-        # Success returns the notebook info with new title
+        result = self._call_rpc(self.RPC_RENAME_NOTEBOOK, params, f"/notebook/{notebook_id}")
         return result is not None
 
     def configure_chat(
@@ -899,33 +711,7 @@ class ConsumerNotebookLMClient:
         custom_prompt: str | None = None,
         response_length: str = "default",
     ) -> dict[str, Any]:
-        """Configure the chat settings for a notebook.
-
-        This sets the conversational goal/style and response length for the notebook's
-        AI chat. These settings affect how the AI responds to queries.
-
-        Args:
-            notebook_id: The notebook UUID
-            goal: The conversational goal/style. One of:
-                - "default": General purpose research and brainstorming
-                - "learning_guide": Educational focus, helps grasp new concepts
-                - "custom": Use a custom prompt (requires custom_prompt)
-            custom_prompt: Custom prompt text when goal="custom" (up to 10000 chars)
-            response_length: Response length preference. One of:
-                - "default": Balanced response length
-                - "longer": Verbose, more detailed responses
-                - "shorter": Concise, brief responses
-
-        Returns:
-            Dict with status and updated settings
-
-        Raises:
-            ValueError: If goal="custom" but no custom_prompt provided
-            ValueError: If custom_prompt exceeds 10000 characters
-        """
-        client = self._get_client()
-
-        # Map goal string to code
+        """Configure chat goal/style and response length for a notebook."""
         goal_map = {
             "default": self.CHAT_GOAL_DEFAULT,
             "learning_guide": self.CHAT_GOAL_LEARNING_GUIDE,
@@ -952,14 +738,11 @@ class ConsumerNotebookLMClient:
             raise ValueError(f"Invalid response_length: {response_length}. Must be one of: {list(length_map.keys())}")
         length_code = length_map[response_length]
 
-        # Build the goal setting
         if goal == "custom" and custom_prompt:
             goal_setting = [goal_code, custom_prompt]
         else:
             goal_setting = [goal_code]
 
-        # Build the chat settings params
-        # Structure: [notebook_id, [[null, null, null, null, null, null, null, [[goal], [length]]]]]
         chat_settings = [goal_setting, [length_code]]
         params = [notebook_id, [[None, None, None, None, None, None, None, chat_settings]]]
 
@@ -973,7 +756,6 @@ class ConsumerNotebookLMClient:
         result = self._extract_rpc_result(parsed, self.RPC_RENAME_NOTEBOOK)
 
         if result:
-            # Extract the updated settings from response
             # Response format: [title, null, id, emoji, null, metadata, null, [[goal_code, prompt?], [length_code]]]
             settings = result[7] if len(result) > 7 else None
             return {
@@ -1004,7 +786,6 @@ class ConsumerNotebookLMClient:
         """
         client = self._get_client()
 
-        # Delete notebook params: [[notebook_id], [2]]
         params = [[notebook_id], [2]]
         body = self._build_request_body(self.RPC_DELETE_NOTEBOOK, params)
         url = self._build_url(self.RPC_DELETE_NOTEBOOK)
@@ -1015,21 +796,13 @@ class ConsumerNotebookLMClient:
         parsed = self._parse_response(response.text)
         result = self._extract_rpc_result(parsed, self.RPC_DELETE_NOTEBOOK)
 
-        # Success returns empty list []
         return result is not None
 
     def check_source_freshness(self, source_id: str) -> bool | None:
         """Check if a Drive source is fresh (up-to-date with Google Drive).
-
-        Args:
-            source_id: The source UUID
-
-        Returns:
-            True if fresh, False if stale (needs sync), None on error
-        """
+    """
         client = self._get_client()
 
-        # Check freshness params: [null, ["source_id"], [2]]
         params = [None, [source_id], [2]]
         body = self._build_request_body(self.RPC_CHECK_FRESHNESS, params)
         url = self._build_url(self.RPC_CHECK_FRESHNESS)
@@ -1040,7 +813,6 @@ class ConsumerNotebookLMClient:
         parsed = self._parse_response(response.text)
         result = self._extract_rpc_result(parsed, self.RPC_CHECK_FRESHNESS)
 
-        # Response: [[null, true/false, ["source_id"]]]
         # true = fresh, false = stale
         if result and isinstance(result, list) and len(result) > 0:
             inner = result[0] if result else []
@@ -1050,13 +822,7 @@ class ConsumerNotebookLMClient:
 
     def sync_drive_source(self, source_id: str) -> dict | None:
         """Sync a Drive source with the latest content from Google Drive.
-
-        Args:
-            source_id: The source UUID
-
-        Returns:
-            Dict with updated source info (id, title, synced_at) or None on failure
-        """
+    """
         client = self._get_client()
 
         # Sync params: [null, ["source_id"], [2]]
@@ -1070,7 +836,6 @@ class ConsumerNotebookLMClient:
         parsed = self._parse_response(response.text)
         result = self._extract_rpc_result(parsed, self.RPC_SYNC_DRIVE)
 
-        # Response: [[[source_id], "title", [metadata...], [null, 2]]]
         if result and isinstance(result, list) and len(result) > 0:
             source_data = result[0] if result else []
             if isinstance(source_data, list) and len(source_data) >= 3:
@@ -1078,7 +843,6 @@ class ConsumerNotebookLMClient:
                 title = source_data[1] if len(source_data) > 1 else "Unknown"
                 metadata = source_data[2] if len(source_data) > 2 else []
 
-                # Extract sync timestamp from metadata[3]
                 synced_at = None
                 if isinstance(metadata, list) and len(metadata) > 3:
                     sync_info = metadata[3]
@@ -1096,17 +860,10 @@ class ConsumerNotebookLMClient:
 
     def get_notebook_sources_with_types(self, notebook_id: str) -> list[dict]:
         """Get all sources from a notebook with their type information.
-
-        Args:
-            notebook_id: The notebook UUID
-
-        Returns:
-            List of source dicts with id, title, source_type, and drive_doc_id
-        """
+    """
         result = self.get_notebook(notebook_id)
 
         sources = []
-        # Result structure: [[title, [sources], notebook_id, ...]]
         # The notebook data is wrapped in an outer array
         if result and isinstance(result, list) and len(result) >= 1:
             notebook_data = result[0] if isinstance(result[0], list) else result
@@ -1121,7 +878,6 @@ class ConsumerNotebookLMClient:
                         title = src[1] if len(src) > 1 else "Untitled"
                         metadata = src[2] if len(src) > 2 else []
 
-                        # Extract source type from metadata[4]
                         source_type = None
                         drive_doc_id = None
                         if isinstance(metadata, list):
@@ -1162,18 +918,10 @@ class ConsumerNotebookLMClient:
 
     def add_url_source(self, notebook_id: str, url: str) -> dict | None:
         """Add a URL (website or YouTube) as a source to a notebook.
-
-        Args:
-            notebook_id: The notebook UUID
-            url: The URL to add (website or YouTube video)
-
-        Returns:
-            Dict with source info (id, title) or None on failure
-        """
+    """
         client = self._get_client()
 
         # URL source params structure:
-        # [[[null, null, [urls], null, null, null, null, null, null, null, 1]], notebook_id, [2], settings]
         source_data = [None, None, [url], None, None, None, None, None, None, None, 1]
         params = [
             [source_data],
@@ -1192,7 +940,6 @@ class ConsumerNotebookLMClient:
         result = self._extract_rpc_result(parsed, self.RPC_ADD_SOURCE)
 
         if result and isinstance(result, list) and len(result) > 0:
-            # Response: [[[[source_id], title, metadata, ...]]]
             source_list = result[0] if result else []
             if source_list and len(source_list) > 0:
                 source_data = source_list[0]
@@ -1203,19 +950,10 @@ class ConsumerNotebookLMClient:
 
     def add_text_source(self, notebook_id: str, text: str, title: str = "Pasted Text") -> dict | None:
         """Add pasted text as a source to a notebook.
-
-        Args:
-            notebook_id: The notebook UUID
-            text: The text content to add
-            title: Optional title for the source (default: "Pasted Text")
-
-        Returns:
-            Dict with source info (id, title) or None on failure
-        """
+    """
         client = self._get_client()
 
         # Text source params structure:
-        # [[[null, [title, content], null, 2, null, null, null, null, null, null, 1]], notebook_id, [2], settings]
         source_data = [None, [title, text], None, 2, None, None, None, None, None, None, 1]
         params = [
             [source_data],
@@ -1250,24 +988,10 @@ class ConsumerNotebookLMClient:
         mime_type: str = "application/vnd.google-apps.document"
     ) -> dict | None:
         """Add a Google Drive document as a source to a notebook.
-
-        Args:
-            notebook_id: The notebook UUID
-            document_id: The Google Drive document ID (from the URL)
-            title: The document title/name to display
-            mime_type: The MIME type (default: Google Doc)
-                - application/vnd.google-apps.document (Google Doc)
-                - application/vnd.google-apps.presentation (Google Slides)
-                - application/vnd.google-apps.spreadsheet (Google Sheets)
-                - application/pdf (PDF)
-
-        Returns:
-            Dict with source info (id, title) or None on failure
-        """
+    """
         client = self._get_client()
 
         # Drive source params structure (verified from network capture):
-        # [[doc_id, mime_type, 1, title], null, null, null, null, null, null, null, null, null, 1]
         source_data = [
             [document_id, mime_type, 1, title],  # Drive document info at position 0
             None,
@@ -1369,7 +1093,6 @@ class ConsumerNotebookLMClient:
         # Use compact JSON format matching Chrome (no spaces)
         params_json = json.dumps(params, separators=(",", ":"))
 
-        # Build request body (similar to batchexecute but different structure)
         f_req = [None, params_json]
         f_req_json = json.dumps(f_req, separators=(",", ":"))
 
@@ -1380,7 +1103,6 @@ class ConsumerNotebookLMClient:
         # Add trailing & to match NotebookLM's format
         body = "&".join(body_parts) + "&"
 
-        # Build URL with _reqid (required for query endpoint)
         self._reqid_counter += 100000  # Increment counter
         url_params = {
             "bl": "boq_labs-tailwind-frontend_20251221.14_p0",
@@ -1418,13 +1140,7 @@ class ConsumerNotebookLMClient:
 
     def _extract_source_ids_from_notebook(self, notebook_data: Any) -> list[str]:
         """Extract source IDs from notebook data.
-
-        Args:
-            notebook_data: Raw notebook data from get_notebook()
-
-        Returns:
-            List of source ID strings
-        """
+    """
         source_ids = []
         if not notebook_data or not isinstance(notebook_data, list):
             return source_ids
@@ -1538,7 +1254,6 @@ class ConsumerNotebookLMClient:
         if not isinstance(data, list) or len(data) == 0:
             return None, False
 
-        # Structure: [["wrb.fr", null, "<inner_json>", ...], ...]
         for item in data:
             if not isinstance(item, list) or len(item) < 3:
                 continue
@@ -1554,7 +1269,6 @@ class ConsumerNotebookLMClient:
             except json.JSONDecodeError:
                 continue
 
-            # Structure: [["answer_text", null, [...], null, type_info]]
             # Type indicator is at inner_data[0][4][-1]: 1 = answer, 2 = thinking
             if isinstance(inner_data, list) and len(inner_data) > 0:
                 first_elem = inner_data[0]
@@ -1583,19 +1297,7 @@ class ConsumerNotebookLMClient:
         mode: str = "fast",
     ) -> dict | None:
         """Start a research session to discover sources.
-
-        Args:
-            notebook_id: The notebook UUID
-            query: The search query
-            source: Source type - "web" or "drive"
-            mode: Research mode - "fast" (10 sources, ~30s) or "deep" (40+ sources, 3-5min, web only)
-
-        Returns:
-            Dict with task_id and research info, or None on failure
-
-        Raises:
-            ValueError: If invalid source/mode combination (deep + drive not supported)
-        """
+    """
         # Validate inputs
         source_lower = source.lower()
         mode_lower = mode.lower()
@@ -1616,12 +1318,10 @@ class ConsumerNotebookLMClient:
 
         if mode_lower == "fast":
             # Fast Research: Ljjv0c
-            # Params: [["query", source_type], null, 1, "notebook_id"]
             params = [[query, source_type], None, 1, notebook_id]
             rpc_id = self.RPC_START_FAST_RESEARCH
         else:
             # Deep Research: QA9ei
-            # Params: [null, [1], ["query", source_type], 5, "notebook_id"]
             params = [None, [1], [query, source_type], 5, notebook_id]
             rpc_id = self.RPC_START_DEEP_RESEARCH
 
@@ -1675,7 +1375,6 @@ class ConsumerNotebookLMClient:
         if not result or not isinstance(result, list) or len(result) == 0:
             return {"status": "no_research", "message": "No active research found"}
 
-        # Result structure: [[[task_id, task_info, status], [ts1], [ts2]]]
         # Unwrap the outer array to get [[task_id, task_info, status], [ts1], [ts2]]
         if isinstance(result[0], list) and len(result[0]) > 0 and isinstance(result[0][0], list):
             result = result[0]
@@ -1698,7 +1397,6 @@ class ConsumerNotebookLMClient:
                 continue
 
             # Parse task info structure:
-            # [notebook_id, [query, source_type], mode, [[sources], summary], status]
             # Note: status is at task_info[4], NOT task_data[2] (which is a timestamp)
             query_info = task_info[1] if len(task_info) > 1 else None
             research_mode = task_info[2] if len(task_info) > 2 else None
@@ -1708,7 +1406,6 @@ class ConsumerNotebookLMClient:
             query_text = query_info[0] if query_info and len(query_info) > 0 else ""
             source_type = query_info[1] if query_info and len(query_info) > 1 else 1
 
-            # Extract sources_data and summary from bundled array [[sources], summary]
             sources_data = []
             summary = ""
             if isinstance(sources_and_summary, list) and len(sources_and_summary) >= 2:
@@ -1773,16 +1470,7 @@ class ConsumerNotebookLMClient:
         sources: list[dict],
     ) -> list[dict]:
         """Import research sources into the notebook.
-
-        Args:
-            notebook_id: The notebook UUID
-            task_id: The research task ID from start_research
-            sources: List of source dicts from poll_research to import
-                     Each dict should have: url, title, result_type
-
-        Returns:
-            List of created source dicts with id and title
-        """
+    """
         if not sources:
             return []
 
@@ -1825,7 +1513,6 @@ class ConsumerNotebookLMClient:
 
             source_array.append(source_data)
 
-        # Import params: [null, [1], "task_id", "notebook_id", [sources]]
         # Note: source_array is already [source1, source2, ...], don't double-wrap
         params = [None, [1], task_id, notebook_id, source_array]
         body = self._build_request_body(self.RPC_IMPORT_RESEARCH, params)
@@ -1870,18 +1557,7 @@ class ConsumerNotebookLMClient:
         focus_prompt: str = "",
     ) -> dict | None:
         """Create an Audio Overview (podcast) for a notebook.
-
-        Args:
-            notebook_id: The notebook UUID
-            source_ids: List of source UUIDs to include
-            format_code: Audio format (1=Deep Dive, 2=Brief, 3=Critique, 4=Debate)
-            length_code: Length (1=Short, 2=Default, 3=Long)
-            language: BCP-47 language code (e.g., "en", "es", "fr")
-            focus_prompt: Optional text describing what AI should focus on
-
-        Returns:
-            Dict with artifact_id and status, or None on failure
-        """
+    """
         client = self._get_client()
 
         # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
@@ -1890,7 +1566,6 @@ class ConsumerNotebookLMClient:
         # Build source IDs in the simpler format: [[id1], [id2], ...]
         sources_simple = [[sid] for sid in source_ids]
 
-        # Build the audio options structure
         audio_options = [
             None,
             [
@@ -1904,7 +1579,6 @@ class ConsumerNotebookLMClient:
             ]
         ]
 
-        # Build the full params
         params = [
             [2],
             notebook_id,
@@ -1927,7 +1601,6 @@ class ConsumerNotebookLMClient:
         result = self._extract_rpc_result(parsed, self.RPC_CREATE_STUDIO)
 
         if result and isinstance(result, list) and len(result) > 0:
-            # Response: [[artifact_id, title, type, sources, status, ...]]
             artifact_data = result[0]
             artifact_id = artifact_data[0] if isinstance(artifact_data, list) and len(artifact_data) > 0 else None
             status_code = artifact_data[4] if isinstance(artifact_data, list) and len(artifact_data) > 4 else None
@@ -1954,18 +1627,7 @@ class ConsumerNotebookLMClient:
         focus_prompt: str = "",
     ) -> dict | None:
         """Create a Video Overview for a notebook.
-
-        Args:
-            notebook_id: The notebook UUID
-            source_ids: List of source UUIDs to include
-            format_code: Video format (1=Explainer, 2=Brief)
-            visual_style_code: Visual style (1=Auto, 2=Custom, 3=Classic, etc.)
-            language: BCP-47 language code (e.g., "en", "es", "fr")
-            focus_prompt: Optional text describing what AI should focus on
-
-        Returns:
-            Dict with artifact_id and status, or None on failure
-        """
+    """
         client = self._get_client()
 
         # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
@@ -1974,7 +1636,6 @@ class ConsumerNotebookLMClient:
         # Build source IDs in the simpler format: [[id1], [id2], ...]
         sources_simple = [[sid] for sid in source_ids]
 
-        # Build the video options structure
         video_options = [
             None, None,
             [
@@ -1987,7 +1648,6 @@ class ConsumerNotebookLMClient:
             ]
         ]
 
-        # Build the full params
         params = [
             [2],
             notebook_id,
@@ -2010,7 +1670,6 @@ class ConsumerNotebookLMClient:
         result = self._extract_rpc_result(parsed, self.RPC_CREATE_STUDIO)
 
         if result and isinstance(result, list) and len(result) > 0:
-            # Response: [[artifact_id, title, type, sources, status, ...]]
             artifact_data = result[0]
             artifact_id = artifact_data[0] if isinstance(artifact_data, list) and len(artifact_data) > 0 else None
             status_code = artifact_data[4] if isinstance(artifact_data, list) and len(artifact_data) > 4 else None
@@ -2029,13 +1688,7 @@ class ConsumerNotebookLMClient:
 
     def poll_studio_status(self, notebook_id: str) -> list[dict]:
         """Poll for studio content (audio/video overviews) status.
-
-        Args:
-            notebook_id: The notebook UUID
-
-        Returns:
-            List of studio artifacts with their status and URLs
-        """
+    """
         client = self._get_client()
 
         # Poll params: [[2], notebook_id, 'NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"']
@@ -2063,7 +1716,6 @@ class ConsumerNotebookLMClient:
                 type_code = artifact_data[2] if len(artifact_data) > 2 else None
                 status_code = artifact_data[4] if len(artifact_data) > 4 else None
 
-                # Extract audio/video URLs from the options structure
                 audio_url = None
                 video_url = None
                 duration_seconds = None
@@ -2084,7 +1736,6 @@ class ConsumerNotebookLMClient:
                         video_url = video_options[3] if isinstance(video_options[3], str) else None
 
                 # Infographic artifacts have image URL at position 14
-                # Structure: [settings, title, [[title, [url, width, height], desc, text]]]
                 infographic_url = None
                 if type_code == self.STUDIO_TYPE_INFOGRAPHIC and len(artifact_data) > 14:
                     infographic_options = artifact_data[14]
@@ -2199,7 +1850,6 @@ class ConsumerNotebookLMClient:
         parsed = self._parse_response(response.text)
         result = self._extract_rpc_result(parsed, self.RPC_DELETE_STUDIO)
 
-        # Success returns empty list []
         return result is not None
 
     def create_infographic(
@@ -2212,30 +1862,16 @@ class ConsumerNotebookLMClient:
         focus_prompt: str = "",
     ) -> dict | None:
         """Create an Infographic from notebook sources.
-
-        Args:
-            notebook_id: The notebook UUID
-            source_ids: List of source UUIDs to include
-            orientation_code: Orientation (1=Landscape, 2=Portrait, 3=Square)
-            detail_level_code: Detail level (1=Concise, 2=Standard, 3=Detailed)
-            language: BCP-47 language code (e.g., "en", "es", "fr")
-            focus_prompt: Optional text describing what AI should focus on
-
-        Returns:
-            Dict with artifact_id and status, or None on failure
-        """
+    """
         client = self._get_client()
 
         # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
         sources_nested = [[[sid]] for sid in source_ids]
 
-        # Build the infographic options structure
         # Options at position 14: [[focus_prompt, language, null, orientation, detail_level]]
         # Captured RPC structure was [[null, "en", null, 1, 2]]
         infographic_options = [[focus_prompt or None, language, None, orientation_code, detail_level_code]]
 
-        # Build the content array with 10 nulls between source_ids and options
-        # Structure: [null, null, 7, [source_ids], null*10, [[options]]]
         content = [
             None, None,
             self.STUDIO_TYPE_INFOGRAPHIC,
@@ -2244,7 +1880,6 @@ class ConsumerNotebookLMClient:
             infographic_options  # position 14
         ]
 
-        # Build the full params
         params = [
             [2],
             notebook_id,
@@ -2261,7 +1896,6 @@ class ConsumerNotebookLMClient:
         result = self._extract_rpc_result(parsed, self.RPC_CREATE_STUDIO)
 
         if result and isinstance(result, list) and len(result) > 0:
-            # Response: [[artifact_id, title, type, sources, status, ...]]
             artifact_data = result[0]
             artifact_id = artifact_data[0] if isinstance(artifact_data, list) and len(artifact_data) > 0 else None
             status_code = artifact_data[4] if isinstance(artifact_data, list) and len(artifact_data) > 4 else None
@@ -2288,29 +1922,15 @@ class ConsumerNotebookLMClient:
         focus_prompt: str = "",
     ) -> dict | None:
         """Create a Slide Deck from notebook sources.
-
-        Args:
-            notebook_id: The notebook UUID
-            source_ids: List of source UUIDs to include
-            format_code: Format (1=Detailed Deck, 2=Presenter Slides)
-            length_code: Length (1=Short, 3=Default)
-            language: BCP-47 language code (e.g., "en", "es", "fr")
-            focus_prompt: Optional text describing what AI should focus on
-
-        Returns:
-            Dict with artifact_id and status, or None on failure
-        """
+    """
         client = self._get_client()
 
         # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
         sources_nested = [[[sid]] for sid in source_ids]
 
-        # Build the slide deck options structure
         # Options at position 16: [[focus_prompt, language, format, length]]
         slide_deck_options = [[focus_prompt or None, language, format_code, length_code]]
 
-        # Build the content array with 12 nulls between source_ids and options
-        # Structure: [null, null, 8, [source_ids], null*12, [[options]]]
         content = [
             None, None,
             self.STUDIO_TYPE_SLIDE_DECK,
@@ -2319,7 +1939,6 @@ class ConsumerNotebookLMClient:
             slide_deck_options  # position 16
         ]
 
-        # Build the full params
         params = [
             [2],
             notebook_id,
@@ -2336,7 +1955,6 @@ class ConsumerNotebookLMClient:
         result = self._extract_rpc_result(parsed, self.RPC_CREATE_STUDIO)
 
         if result and isinstance(result, list) and len(result) > 0:
-            # Response: [[artifact_id, title, type, sources, status, ...]]
             artifact_data = result[0]
             artifact_id = artifact_data[0] if isinstance(artifact_data, list) and len(artifact_data) > 0 else None
             status_code = artifact_data[4] if isinstance(artifact_data, list) and len(artifact_data) > 4 else None
@@ -2362,21 +1980,7 @@ class ConsumerNotebookLMClient:
         language: str = "en",
     ) -> dict | None:
         """Create a Report from notebook sources.
-
-        Args:
-            notebook_id: The notebook UUID
-            source_ids: List of source UUIDs to include
-            report_format: Report format - one of:
-                - "Briefing Doc": Key insights and important quotes
-                - "Study Guide": Short-answer quiz, essay questions, glossary
-                - "Blog Post": Insightful takeaways in readable article format
-                - "Create Your Own": Custom format with user-defined prompt
-            custom_prompt: Custom prompt when report_format="Create Your Own"
-            language: BCP-47 language code (e.g., "en", "es", "fr")
-
-        Returns:
-            Dict with artifact_id and status, or None on failure
-        """
+    """
         client = self._get_client()
 
         # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
@@ -2430,7 +2034,6 @@ class ConsumerNotebookLMClient:
 
         config = format_configs[report_format]
 
-        # Build the report options structure
         # Options at position 7: [null, [title, desc, null, sources, lang, prompt, null, True]]
         report_options = [
             None,
@@ -2446,8 +2049,6 @@ class ConsumerNotebookLMClient:
             ]
         ]
 
-        # Build the content array
-        # Structure: [null, null, 2, [source_ids], null, null, null, [report_options]]
         content = [
             None, None,
             self.STUDIO_TYPE_REPORT,
@@ -2456,7 +2057,6 @@ class ConsumerNotebookLMClient:
             report_options
         ]
 
-        # Build the full params
         params = [
             [2],
             notebook_id,
@@ -2473,7 +2073,6 @@ class ConsumerNotebookLMClient:
         result = self._extract_rpc_result(parsed, self.RPC_CREATE_STUDIO)
 
         if result and isinstance(result, list) and len(result) > 0:
-            # Response: [[artifact_id, title, type, sources, status, ...]]
             artifact_data = result[0]
             artifact_id = artifact_data[0] if isinstance(artifact_data, list) and len(artifact_data) > 0 else None
             status_code = artifact_data[4] if isinstance(artifact_data, list) and len(artifact_data) > 4 else None
@@ -2497,16 +2096,7 @@ class ConsumerNotebookLMClient:
         card_count: str = "default",
     ) -> dict | None:
         """Create Flashcards from notebook sources.
-
-        Args:
-            notebook_id: The notebook UUID
-            source_ids: List of source UUIDs to include
-            difficulty: Difficulty level - "easy", "medium", or "hard"
-            card_count: Card count preset - "default" (uses default count)
-
-        Returns:
-            Dict with artifact_id and status, or None on failure
-        """
+    """
         client = self._get_client()
 
         # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
@@ -2525,7 +2115,6 @@ class ConsumerNotebookLMClient:
         # Card count code (default = 2)
         count_code = self.FLASHCARD_COUNT_DEFAULT
 
-        # Build the flashcard options structure
         # Options at position 9: [null, [1, null*5, [difficulty, card_count]]]
         flashcard_options = [
             None,
@@ -2536,8 +2125,6 @@ class ConsumerNotebookLMClient:
             ]
         ]
 
-        # Build the content array
-        # Structure: [null, null, 4, [source_ids], null*5, [flashcard_options]]
         content = [
             None, None,
             self.STUDIO_TYPE_FLASHCARDS,
@@ -2546,7 +2133,6 @@ class ConsumerNotebookLMClient:
             flashcard_options  # position 9
         ]
 
-        # Build the full params
         params = [
             [2],
             notebook_id,
@@ -2563,7 +2149,6 @@ class ConsumerNotebookLMClient:
         result = self._extract_rpc_result(parsed, self.RPC_CREATE_STUDIO)
 
         if result and isinstance(result, list) and len(result) > 0:
-            # Response: [[artifact_id, title, type, sources, status, ...]]
             artifact_data = result[0]
             artifact_id = artifact_data[0] if isinstance(artifact_data, list) and len(artifact_data) > 0 else None
             status_code = artifact_data[4] if isinstance(artifact_data, list) and len(artifact_data) > 4 else None
@@ -2598,8 +2183,6 @@ class ConsumerNotebookLMClient:
         # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
         sources_nested = [[[sid]] for sid in source_ids]
 
-        # Build the params
-        # Structure: [sources, null*4, ["interactive_mindmap", [["[CONTEXT]", ""]], ""], null, [2, null, [1]]]
         params = [
             sources_nested,
             None, None, None, None,
@@ -2663,12 +2246,8 @@ class ConsumerNotebookLMClient:
         # Build source IDs in the simpler format: [[id1], [id2], ...]
         sources_simple = [[sid] for sid in source_ids]
 
-        # Build the metadata structure
-        # [2, null, null, 5, [[source_id1], [source_id2], ...]]
         metadata = [2, None, None, 5, sources_simple]
 
-        # Build the params
-        # [notebook_id, json_string, metadata, null, title]
         params = [
             notebook_id,
             mind_map_json,
@@ -2705,16 +2284,9 @@ class ConsumerNotebookLMClient:
 
     def list_mind_maps(self, notebook_id: str) -> list[dict]:
         """List all Mind Maps in a notebook.
-
-        Args:
-            notebook_id: The notebook UUID
-
-        Returns:
-            List of mind map dicts with id, title, and json
-        """
+    """
         client = self._get_client()
 
-        # Params: [notebook_id]
         params = [notebook_id]
 
         body = self._build_request_body(self.RPC_LIST_MIND_MAPS, params)
@@ -2728,7 +2300,6 @@ class ConsumerNotebookLMClient:
 
         mind_maps = []
         if result and isinstance(result, list) and len(result) > 0:
-            # Response: [[[mind_map_id, [details]], ...], [timestamp]]
             mind_map_list = result[0] if isinstance(result[0], list) else []
 
             for mind_map_data in mind_map_list:
@@ -2744,7 +2315,6 @@ class ConsumerNotebookLMClient:
                     title = details[4] if len(details) > 4 else "Mind Map"
                     metadata = details[2] if len(details) > 2 else []
 
-                    # Extract created_at from metadata
                     created_at = None
                     if isinstance(metadata, list) and len(metadata) > 2:
                         ts = metadata[2]
