@@ -89,6 +89,7 @@ def launch_chrome(port: int, headless: bool = False) -> bool:
         "--no-first-run",
         "--no-default-browser-check",
         "--disable-extensions",  # Bypass extensions that may interfere (e.g., Antigravity IDE)
+        "--disable-features=DevToolsDebuggingRestrictions",  # Required for Chrome 136+ to allow debugging with default profile
     ]
 
     # Use the user's default Chrome profile to access existing cookies
@@ -372,6 +373,7 @@ def run_auth_flow(port: int = CDP_DEFAULT_PORT, auto_launch: bool = True) -> Aut
         print(f'    /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome \\')
         print(f'      --remote-debugging-port={port} \\')
         print(f'      --disable-extensions \\')
+        print(f'      --disable-features=DevToolsDebuggingRestrictions \\')
         print(f'      --user-data-dir="{user_data_dir}"')
         print()
         print("  Then run: notebooklm-consumer-auth")
