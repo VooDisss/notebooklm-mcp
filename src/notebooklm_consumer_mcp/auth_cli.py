@@ -441,6 +441,9 @@ def run_auth_flow(port: int = CDP_DEFAULT_PORT, auto_launch: bool = True) -> Aut
         print(f"Found: {list(cookies.keys())}")
         return None
 
+    # Get page HTML for CSRF extraction
+    html = get_page_html(ws_url)
+
     # Extract CSRF token
     print("Extracting CSRF token...")
     csrf_token = extract_csrf_from_page_source(html)
