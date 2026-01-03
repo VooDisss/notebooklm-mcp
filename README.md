@@ -6,9 +6,11 @@ An MCP server for **NotebookLM** (notebooklm.google.com).
 
 > **Note:** Tested with Pro/free tier accounts. May work with NotebookLM Enterprise accounts but has not been tested.
 
-📺 **Watch the Demo** - See the MCP in action!
+📺 **Watch the Demos**
 
-[![NotebookLM MCP Demo](https://img.youtube.com/vi/d-PZDQlO4m4/hqdefault.jpg)](https://www.youtube.com/watch?v=d-PZDQlO4m4)
+| **General Overview** | **Claude Desktop** | **Perplexity Desktop** |
+|:---:|:---:|:---:|
+| [![General](https://img.youtube.com/vi/d-PZDQlO4m4/mqdefault.jpg)](https://www.youtube.com/watch?v=d-PZDQlO4m4) | [![Claude](https://img.youtube.com/vi/PU8JhgLPxes/mqdefault.jpg)](https://www.youtube.com/watch?v=PU8JhgLPxes) | [![Perplexity](https://img.youtube.com/vi/BCKlDNg-qxs/mqdefault.jpg)](https://www.youtube.com/watch?v=BCKlDNg-qxs) |
 
 ## Features
 
