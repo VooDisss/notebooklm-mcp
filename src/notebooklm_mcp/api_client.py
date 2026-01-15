@@ -23,6 +23,11 @@ class AuthenticationError(Exception):
     pass
 
 
+# Timeout configuration (seconds)
+DEFAULT_TIMEOUT = 30.0  # Default for most operations
+DRIVE_SOURCE_TIMEOUT = 120.0  # Extended timeout for Drive source operations (large slides/docs)
+
+
 # Ownership constants (from metadata position 0)
 OWNERSHIP_MINE = constants.OWNERSHIP_MINE
 OWNERSHIP_SHARED = constants.OWNERSHIP_SHARED
@@ -1213,8 +1218,15 @@ class NotebookLMClient:
         source_path = f"/notebook/{notebook_id}"
         url_endpoint = self._build_url(self.RPC_ADD_SOURCE, source_path)
 
-        response = client.post(url_endpoint, content=body)
-        response.raise_for_status()
+        try:
+            response = client.post(url_endpoint, content=body, timeout=DRIVE_SOURCE_TIMEOUT)
+            response.raise_for_status()
+        except httpx.TimeoutException:
+            # Large files may take longer than the timeout but still succeed on backend
+            return {
+                "status": "timeout",
+                "message": f"Operation timed out after {DRIVE_SOURCE_TIMEOUT}s but may have succeeded. Check notebook sources before retrying.",
+            }
 
         parsed = self._parse_response(response.text)
         result = self._extract_rpc_result(parsed, self.RPC_ADD_SOURCE)
@@ -1224,7 +1236,7 @@ class NotebookLMClient:
             if source_list and len(source_list) > 0:
                 source_data = source_list[0]
                 source_id = source_data[0][0] if source_data[0] else None
-                source_title = source_data[1] if len(source_data) > 1 else document_name
+                source_title = source_data[1] if len(source_data) > 1 else title
                 return {"id": source_id, "title": source_title}
         return None
 

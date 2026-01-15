@@ -363,6 +363,13 @@ def notebook_add_drive(
         )
 
         if result:
+            # Handle timeout status from api_client (large files may timeout on backend)
+            if isinstance(result, dict) and result.get("status") == "timeout":
+                return {
+                    "status": "timeout",
+                    "message": result.get("message", "Operation timed out but may have succeeded."),
+                    "hint": "Check notebook sources before retrying to avoid duplicates.",
+                }
             return {
                 "status": "success",
                 "source": result,
