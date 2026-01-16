@@ -526,23 +526,18 @@ class NotebookLMClient:
         """
         from .auth import load_cached_tokens, get_cache_path
         
-        # Check if auth.json has fresher tokens
+        # Check if auth.json has tokens - always try them since current tokens failed
         cache_path = get_cache_path()
         if cache_path.exists():
             cached = load_cached_tokens()
-            if cached and cached.extracted_at > 0:
-                # Check if cached tokens are newer than our current ones
-                # (meaning someone ran notebooklm-mcp-auth externally)
-                import time
-                current_time = time.time()
-                token_age = current_time - cached.extracted_at
-                
-                # If tokens are less than 5 minutes old, they're probably fresh
-                if token_age < 300:
-                    self.cookies = cached.cookies
-                    self.csrf_token = cached.csrf_token
-                    self._session_id = cached.session_id
-                    return True
+            if cached and cached.cookies:
+                # Always reload from disk when auth fails - current tokens are known-bad
+                # The cached tokens may be fresher (user ran notebooklm-mcp-auth)
+                # or the same, but worth retrying with a fresh CSRF token extraction
+                self.cookies = cached.cookies
+                self.csrf_token = ""  # Force re-extraction of CSRF token
+                self._session_id = ""  # Force re-extraction of session ID
+                return True
         
         # Try headless auth if Chrome profile exists
         try:
