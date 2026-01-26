@@ -1,7 +1,9 @@
-"""Authentication helper for NotebookLM MCP.
+"""Authentication helper for NotebookLM Tools.
 
 Uses Chrome DevTools MCP to extract auth tokens from an authenticated browser session.
 If the user is not logged in, prompts them to log in via the Chrome window.
+
+Storage location: ~/.notebooklm-tools/ (unified for CLI and MCP)
 """
 
 import json
@@ -56,10 +58,12 @@ class AuthTokens:
 
 
 def get_cache_path() -> Path:
-    """Get the path to the auth cache file."""
-    cache_dir = Path.home() / ".notebooklm-mcp"
-    cache_dir.mkdir(exist_ok=True)
-    return cache_dir / "auth.json"
+    """Get the path to the auth cache file.
+    
+    Uses ~/.notebooklm-tools/auth.json (unified location).
+    """
+    from notebooklm_tools.utils.config import get_auth_cache_file
+    return get_auth_cache_file()
 
 
 def load_cached_tokens() -> AuthTokens | None:

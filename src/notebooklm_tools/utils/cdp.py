@@ -76,13 +76,8 @@ def get_chrome_path() -> str | None:
     return None
 
 
-def get_chrome_profile_dir() -> Path:
-    """Get the CLI's Chrome profile directory.
-    
-    We use a separate profile at ~/.nlm/chrome-profile so we can run
-    alongside the user's main Chrome browser without conflicts.
-    """
-    return Path.home() / ".nlm" / "chrome-profile"
+# Import Chrome profile directory from unified config
+from notebooklm_tools.utils.config import get_chrome_profile_dir
 
 
 def is_profile_locked() -> bool:

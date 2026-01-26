@@ -1,12 +1,192 @@
-"""Configuration management for NLM CLI."""
+"""Configuration management for NotebookLM Tools.
+
+Uses ~/.notebooklm-tools/ for all data (config, profiles, Chrome profile).
+Supports migration from old locations:
+- ~/.notebooklm-mcp/ (old MCP location)  
+- ~/Library/Application Support/nlm/ (old CLI location on macOS)
+"""
 
 import os
+import shutil
 from pathlib import Path
 from typing import Any
 
-from platformdirs import user_config_dir, user_data_dir
 from pydantic import BaseModel, Field
 
+
+# =============================================================================
+# Storage Location
+# =============================================================================
+
+STORAGE_DIR_NAME = ".notebooklm-tools"
+
+# Old locations to check for migration
+OLD_LOCATIONS = [
+    Path.home() / ".notebooklm-mcp",  # Old MCP location
+]
+
+# Try to add old CLI location (platformdirs-based)
+try:
+    from platformdirs import user_data_dir
+    OLD_LOCATIONS.append(Path(user_data_dir("nlm")))
+except ImportError:
+    pass
+
+
+def get_storage_dir() -> Path:
+    """Get the main storage directory (~/.notebooklm-tools/).
+    
+    Returns the path, creating it if needed.
+    """
+    if env_path := os.environ.get("NOTEBOOKLM_TOOLS_PATH"):
+        storage_dir = Path(env_path)
+    else:
+        storage_dir = Path.home() / STORAGE_DIR_NAME
+    
+    storage_dir.mkdir(exist_ok=True)
+    return storage_dir
+
+
+def get_config_dir() -> Path:
+    """Get the configuration directory path (alias for get_storage_dir)."""
+    return get_storage_dir()
+
+
+def get_data_dir() -> Path:
+    """Get the data directory path (alias for get_storage_dir)."""
+    return get_storage_dir()
+
+
+def get_profiles_dir() -> Path:
+    """Get the profiles directory path."""
+    profiles_dir = get_storage_dir() / "profiles"
+    profiles_dir.mkdir(exist_ok=True)
+    return profiles_dir
+
+
+def get_profile_dir(profile_name: str = "default") -> Path:
+    """Get directory for a specific profile."""
+    profile_dir = get_profiles_dir() / profile_name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    return profile_dir
+
+
+def get_chrome_profile_dir() -> Path:
+    """Get Chrome profile directory for automated auth."""
+    chrome_dir = get_storage_dir() / "chrome-profile"
+    chrome_dir.mkdir(exist_ok=True)
+    return chrome_dir
+
+
+def get_config_file() -> Path:
+    """Get the config file path."""
+    return get_storage_dir() / "config.toml"
+
+
+def get_auth_cache_file() -> Path:
+    """Get the auth cache file path (for MCP compatibility)."""
+    return get_storage_dir() / "auth.json"
+
+
+# =============================================================================
+# Migration Support
+# =============================================================================
+
+def check_for_old_profiles() -> list[dict[str, Any]]:
+    """Check for existing profiles in old locations.
+    
+    Returns list of dicts with: location, profile_type, path, has_auth
+    """
+    found = []
+    
+    for old_path in OLD_LOCATIONS:
+        if not old_path.exists():
+            continue
+            
+        # Check for MCP-style auth.json
+        auth_file = old_path / "auth.json"
+        if auth_file.exists():
+            found.append({
+                "location": str(old_path),
+                "profile_type": "mcp",
+                "path": old_path,
+                "auth_file": auth_file,
+                "has_chrome_profile": (old_path / "chrome-profile").exists(),
+            })
+        
+        # Check for CLI-style profiles/*/cookies.json
+        profiles_dir = old_path / "profiles"
+        if profiles_dir.exists():
+            for profile_dir in profiles_dir.iterdir():
+                if profile_dir.is_dir():
+                    cookies_file = profile_dir / "cookies.json"
+                    if cookies_file.exists():
+                        found.append({
+                            "location": str(old_path),
+                            "profile_type": "cli",
+                            "path": profile_dir,
+                            "profile_name": profile_dir.name,
+                            "cookies_file": cookies_file,
+                        })
+    
+    return found
+
+
+def migrate_old_profiles(dry_run: bool = True) -> list[str]:
+    """Migrate profiles from old locations to new unified location.
+    
+    Args:
+        dry_run: If True, only report what would be done.
+        
+    Returns:
+        List of actions taken (or that would be taken).
+    """
+    actions = []
+    new_storage = get_storage_dir()
+    
+    for old_profile in check_for_old_profiles():
+        if old_profile["profile_type"] == "mcp":
+            # Migrate MCP auth.json
+            old_auth = old_profile["auth_file"]
+            new_auth = new_storage / "auth.json"
+            
+            if not new_auth.exists():
+                action = f"Copy auth.json from {old_profile['location']}"
+                actions.append(action)
+                if not dry_run:
+                    shutil.copy2(old_auth, new_auth)
+            
+            # Migrate Chrome profile
+            old_chrome = old_profile["path"] / "chrome-profile"
+            if old_chrome.exists():
+                new_chrome = new_storage / "chrome-profile"
+                if not new_chrome.exists():
+                    action = f"Copy Chrome profile from {old_profile['location']}"
+                    actions.append(action)
+                    if not dry_run:
+                        shutil.copytree(old_chrome, new_chrome)
+                        
+        elif old_profile["profile_type"] == "cli":
+            # Migrate CLI profile
+            profile_name = old_profile["profile_name"]
+            old_dir = old_profile["path"]
+            new_dir = get_profile_dir(profile_name)
+            
+            # Check if already migrated
+            if not (new_dir / "cookies.json").exists():
+                action = f"Copy CLI profile '{profile_name}' from {old_profile['location']}"
+                actions.append(action)
+                if not dry_run:
+                    for file in old_dir.iterdir():
+                        if file.is_file():
+                            shutil.copy2(file, new_dir / file.name)
+    
+    return actions
+
+
+# =============================================================================
+# Configuration Models
+# =============================================================================
 
 class OutputConfig(BaseModel):
     """Output formatting configuration."""
@@ -28,37 +208,6 @@ class Config(BaseModel):
 
     output: OutputConfig = Field(default_factory=OutputConfig)
     auth: AuthConfig = Field(default_factory=AuthConfig)
-
-
-def get_config_dir() -> Path:
-    """Get the configuration directory path."""
-    # Check for environment override
-    if env_path := os.environ.get("NLM_CONFIG_PATH"):
-        return Path(env_path)
-    # Use platformdirs for cross-platform support
-    return Path(user_config_dir("nlm", ensure_exists=True))
-
-
-def get_data_dir() -> Path:
-    """Get the data directory path (for profiles/credentials)."""
-    if env_path := os.environ.get("NLM_PROFILE_PATH"):
-        return Path(env_path)
-    return Path(user_data_dir("nlm", ensure_exists=True))
-
-
-def get_profiles_dir() -> Path:
-    """Get the profiles directory path."""
-    return get_data_dir() / "profiles"
-
-
-def get_profile_dir(profile_name: str = "default") -> Path:
-    """Get directory for a specific profile."""
-    return get_profiles_dir() / profile_name
-
-
-def get_config_file() -> Path:
-    """Get the config file path."""
-    return get_config_dir() / "config.toml"
 
 
 def load_config() -> Config:

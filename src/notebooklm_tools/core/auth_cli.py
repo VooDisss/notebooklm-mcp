@@ -35,6 +35,7 @@ from .auth import (
     save_tokens_to_cache,
     validate_cookies,
 )
+from notebooklm_tools.utils.config import get_chrome_profile_dir
 
 
 CDP_DEFAULT_PORT = 9222
@@ -95,7 +96,7 @@ def launch_chrome(port: int, headless: bool = False) -> "subprocess.Popen | None
 
     # Chrome 136+ requires a non-default user-data-dir for remote debugging
     # We use a persistent directory so Google login is remembered across runs
-    profile_dir = Path.home() / ".notebooklm-mcp" / "chrome-profile"
+    profile_dir = get_chrome_profile_dir()
     profile_dir.mkdir(parents=True, exist_ok=True)
 
     args = [
@@ -294,7 +295,7 @@ def is_chrome_profile_locked(profile_dir: str | None = None) -> bool:
     if profile_dir is None:
         # Check OUR profile, not the default Chrome profile
         # We use a separate profile so we can run alongside the user's main Chrome
-        profile_dir = str(Path.home() / ".notebooklm-mcp" / "chrome-profile")
+        profile_dir = str(get_chrome_profile_dir())
 
     # Chrome creates a "SingletonLock" file when the profile is in use
     lock_file = Path(profile_dir) / "SingletonLock"
@@ -319,7 +320,7 @@ def has_chrome_profile() -> bool:
     Returns True if the profile directory exists and has login cookies,
     indicating that the user has previously authenticated.
     """
-    profile_dir = Path.home() / ".notebooklm-mcp" / "chrome-profile"
+    profile_dir = get_chrome_profile_dir()
     # Check for Cookies file which indicates the profile has been used
     cookies_file = profile_dir / "Default" / "Cookies"
     return cookies_file.exists()
