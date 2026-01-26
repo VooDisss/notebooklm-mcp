@@ -3,38 +3,89 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "notebooklm-mcp-server"
-version = "0.1.15"
-description = "MCP server for NotebookLM (notebooklm.google.com)"
+name = "notebooklm-tools"
+version = "0.2.0"
+description = "Unified CLI and MCP server for Google NotebookLM"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
     { name = "Jacob Ben-David" }
 ]
-keywords = ["mcp", "notebooklm", "google", "ai", "research"]
+keywords = ["notebooklm", "mcp", "cli", "google", "ai", "research", "podcast"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
+
+# Core dependencies (required for both CLI and MCP)
 dependencies = [
-    "fastmcp>=0.1.0",
     "httpx>=0.27.0",
-    "websocket-client>=1.6.0",
+    "pydantic>=2.0.0",
 ]
 
 [project.optional-dependencies]
+# CLI-only dependencies
+cli = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "websocket-client>=1.6.0",  # CDP login
+    "platformdirs>=4.0.0",
+]
+
+# MCP-only dependencies
+mcp = [
+    "fastmcp>=0.1.0",
+]
+
+# All features (CLI + MCP)
+all = [
+    "notebooklm-tools[cli,mcp]",
+]
+
+# Development dependencies
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
 ]
 
 [project.scripts]
-notebooklm-mcp = "notebooklm_mcp.server:main"
-notebooklm-mcp-auth = "notebooklm_mcp.auth_cli:main"
+# CLI entry point
+nlm = "notebooklm_tools.cli.main:app"
+
+# MCP server entry points (backward compatible)
+notebooklm-mcp = "notebooklm_tools.mcp.server:main"
+notebooklm-mcp-auth = "notebooklm_tools.core.auth_cli:main"
+
+[project.urls]
+Homepage = "https://github.com/jacob-bd/notebooklm-tools"
+Repository = "https://github.com/jacob-bd/notebooklm-tools"
+Issues = "https://github.com/jacob-bd/notebooklm-tools/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/notebooklm_mcp"]
+packages = ["src/notebooklm_tools"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
