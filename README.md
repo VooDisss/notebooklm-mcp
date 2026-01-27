@@ -1,8 +1,8 @@
-# NotebookLM MCP Server
+# NotebookLM CLI & MCP Server
 
 ![NotebookLM MCP Header](docs/media/header.jpeg)
 
-An MCP server for **NotebookLM** (notebooklm.google.com).
+**Programmatic access to Google NotebookLM** — via command-line interface (CLI) or Model Context Protocol (MCP) server.
 
 > **Note:** Tested with Pro/free tier accounts. May work with NotebookLM Enterprise accounts but has not been tested.
 
@@ -13,40 +13,57 @@ An MCP server for **NotebookLM** (notebooklm.google.com).
 | [![General](https://img.youtube.com/vi/d-PZDQlO4m4/mqdefault.jpg)](https://www.youtube.com/watch?v=d-PZDQlO4m4) | [![Claude](https://img.youtube.com/vi/PU8JhgLPxes/mqdefault.jpg)](https://www.youtube.com/watch?v=PU8JhgLPxes) | [![Perplexity](https://img.youtube.com/vi/BCKlDNg-qxs/mqdefault.jpg)](https://www.youtube.com/watch?v=BCKlDNg-qxs) | [![MCP SuperAssistant](https://img.youtube.com/vi/7aHDbkr-l_E/mqdefault.jpg)](https://www.youtube.com/watch?v=7aHDbkr-l_E) |
 
 
+## Two Ways to Use
+
+### 🖥️ Command-Line Interface (CLI)
+
+Use `nlm` directly in your terminal for scripting, automation, or interactive use:
+
+```bash
+nlm notebook list                              # List all notebooks
+nlm notebook create "Research Project"         # Create a notebook
+nlm source add <notebook> --url "https://..."  # Add sources
+nlm audio create <notebook> --confirm          # Generate podcast
+nlm download audio <notebook> <artifact-id>    # Download audio file
+nlm share public <notebook>                    # Enable public link
+```
+
+Run `nlm --ai` for comprehensive AI-assistant documentation.
+
+### 🤖 MCP Server (for AI Agents)
+
+Connect AI assistants (Claude, Gemini, Cursor, etc.) to NotebookLM:
+
+```bash
+# Add to Claude Code or Gemini CLI
+claude mcp add --scope user notebooklm-mcp notebooklm-mcp
+gemini mcp add --scope user notebooklm-mcp notebooklm-mcp
+```
+
+Then use natural language: *"Create a notebook about quantum computing and generate a podcast"*
+
 ## Features
 
-| Tool | Description |
-|------|-------------|
-| `notebook_list` | List all notebooks |
-| `notebook_create` | Create a new notebook |
-| `notebook_get` | Get notebook details with sources |
-| `notebook_describe` | Get AI-generated summary of notebook content |
-| `source_describe` | Get AI-generated summary and keywords for a source |
-| `source_get_content` | Get raw text content from a source (no AI processing) |
-| `notebook_rename` | Rename a notebook |
-| `chat_configure` | Configure chat goal/style and response length |
-| `notebook_delete` | Delete a notebook (requires confirmation) |
-| `notebook_add_url` | Add URL/YouTube as source |
-| `notebook_add_text` | Add pasted text as source |
-| `notebook_add_drive` | Add Google Drive document as source |
-| `notebook_query` | Ask questions and get AI answers |
-| `source_list_drive` | List sources with freshness status |
-| `source_sync_drive` | Sync stale Drive sources (requires confirmation) |
-| `source_delete` | Delete a source from notebook (requires confirmation) |
-| `research_start` | Start Web or Drive research to discover sources |
-| `research_status` | Poll research progress with built-in wait |
-| `research_import` | Import discovered sources into notebook |
-| `audio_overview_create` | Generate audio podcasts (requires confirmation) |
-| `video_overview_create` | Generate video overviews (requires confirmation) |
-| `infographic_create` | Generate infographics (requires confirmation) |
-| `slide_deck_create` | Generate slide decks (requires confirmation) |
-| `studio_status` | Check studio artifact generation status |
-| `studio_delete` | Delete studio artifacts (requires confirmation) |
-| `notebook_share_status` | Get sharing settings and collaborators |
-| `notebook_share_public` | Enable/disable public link access |
-| `notebook_share_invite` | Invite collaborator by email |
-| `refresh_auth` | Reload auth tokens from disk or run headless re-auth |
-| `save_auth_tokens` | Save cookies for authentication |
+| Capability | CLI Command | MCP Tool |
+|------------|-------------|----------|
+| List notebooks | `nlm notebook list` | `notebook_list` |
+| Create notebook | `nlm notebook create` | `notebook_create` |
+| Add URL/YouTube source | `nlm source add --url` | `notebook_add_url` |
+| Add text source | `nlm source add --text` | `notebook_add_text` |
+| Add Google Drive source | `nlm source add --drive` | `notebook_add_drive` |
+| Query notebook (AI chat) | `nlm notebook query` | `notebook_query` |
+| Generate audio podcast | `nlm audio create` | `audio_overview_create` |
+| Generate video overview | `nlm video create` | `video_overview_create` |
+| Generate report | `nlm report create` | `report_create` |
+| Generate quiz | `nlm quiz create` | `quiz_create` |
+| Generate flashcards | `nlm flashcards create` | `flashcards_create` |
+| Generate slides | `nlm slides create` | `slide_deck_create` |
+| Generate infographic | `nlm infographic create` | `infographic_create` |
+| Generate mind map | `nlm mindmap create` | `mind_map_create` |
+| Download artifacts | `nlm download <type>` | `download_*` |
+| Web/Drive research | `nlm research start` | `research_start` |
+| Share notebook | `nlm share public/invite` | `notebook_share_*` |
+| Sync Drive sources | `nlm source sync` | `source_sync_drive` |
 
 ## Important Disclaimer
 
@@ -135,7 +152,7 @@ Also remove from your AI tools:
 
 ## Authentication
 
-Before using the MCP, you need to authenticate with NotebookLM. Run:
+Before using the CLI or MCP, you need to authenticate with NotebookLM. Run:
 
 ```bash
 # Recommended: Auto mode (launches Chrome, you log in)
@@ -154,8 +171,6 @@ After successful auth, add the MCP to your AI tool and restart.
 For detailed instructions, troubleshooting, and how the authentication system works, see **[docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)**.
 
 ## MCP Configuration
-
-> **⚠️ Context Window Warning:** This MCP provides **34 tools** which consume a significant portion of your context window. It's recommended to **disable the MCP when not actively using NotebookLM** to preserve context for your other work. In Claude Code, use `@notebooklm-mcp` to toggle it on/off, or use `/mcp` command.
 
 > **⚠️ Context Window Warning:** This MCP provides **34 tools** which consume a significant portion of your context window. It's recommended to **disable the MCP when not actively using NotebookLM** to preserve context for your other work. In Claude Code, use `@notebooklm-mcp` to toggle it on/off, or use `/mcp` command.
  
