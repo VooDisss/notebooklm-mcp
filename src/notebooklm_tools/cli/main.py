@@ -26,6 +26,25 @@ from notebooklm_tools.cli.commands.studio import (
     video_app,
 )
 from notebooklm_tools.cli.commands.download import app as download_app
+from notebooklm_tools.cli.commands.verbs import (
+    create_app,
+    list_app,
+    get_app,
+    delete_app,
+    add_app,
+    rename_app,
+    status_app,
+    describe_app,
+    query_app,
+    sync_app,
+    content_app,
+    stale_app,
+    research_app as research_verb_app,
+    configure_app,
+    download_app as download_verb_app,
+    set_app,
+    show_app,
+)
 
 console = Console()
 
@@ -37,7 +56,7 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 
-# Register subcommands
+# Register noun-first subcommands (existing structure)
 app.add_typer(notebook_app, name="notebook", help="Manage notebooks")
 app.add_typer(source_app, name="source", help="Manage sources")
 app.add_typer(chat_app, name="chat", help="Configure chat settings")
@@ -60,6 +79,25 @@ app.add_typer(data_table_app, name="data-table", help="Create data tables")
 
 # Auth commands at top level
 app.add_typer(auth_app, name="auth", help="Authentication status")
+
+# Register verb-first subcommands (alternative structure)
+app.add_typer(create_app, name="create", help="Create resources (notebooks, audio, video, etc)")
+app.add_typer(list_app, name="list", help="List resources (notebooks, sources, artifacts)")
+app.add_typer(get_app, name="get", help="Get details about resources")
+app.add_typer(delete_app, name="delete", help="Delete resources (notebooks, sources, artifacts)")
+app.add_typer(add_app, name="add", help="Add resources (sources to notebooks)")
+app.add_typer(rename_app, name="rename", help="Rename resources")
+app.add_typer(status_app, name="status", help="Check status of resources")
+app.add_typer(describe_app, name="describe", help="Get AI-generated descriptions and summaries")
+app.add_typer(query_app, name="query", help="Chat with notebook sources")
+app.add_typer(sync_app, name="sync", help="Sync resources (Drive sources)")
+app.add_typer(content_app, name="content", help="Get raw content from sources")
+app.add_typer(stale_app, name="stale", help="List stale resources that need syncing")
+app.add_typer(research_verb_app, name="research-verb", help="Research and discover sources (verb-first)")
+app.add_typer(configure_app, name="configure", help="Configure settings")
+app.add_typer(download_verb_app, name="download-verb", help="Download studio artifacts (verb-first)")
+app.add_typer(set_app, name="set", help="Set values (aliases, config)")
+app.add_typer(show_app, name="show", help="Show information")
 
 
 @app.command("login")
