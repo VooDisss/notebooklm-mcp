@@ -265,6 +265,38 @@ Restart the application after adding the configuration.
 
 **Tools using JSON config files** — use the full path approach shown above.
 
+### OpenCode (Local Development)
+
+If you are developing the MCP server locally and want to use the source code directly in [OpenCode](https://opencode.ai):
+
+1. **Install in Editable Mode**:
+   ```bash
+   git clone https://github.com/jacob-bd/notebooklm-mcp.git
+   cd notebooklm-mcp
+   pip install -e .
+   ```
+
+2. **Configure `opencode.json`**:
+   Add the following block to your configuration (typically found at `C:\Users\<USER>\.config\opencode\opencode.json`):
+
+   ```json
+   "mcp": {
+     "notebooklm": {
+       "type": "local",
+       "command": ["python", "-m", "notebooklm_mcp"],
+       "environment": {
+         "GEMINI_API_KEY": "YOUR_API_KEY",
+         "NOTEBOOKLM_QUERY_TIMEOUT": "600",
+         "NOTEBOOKLM_MCP_LOG_FILE": "C:\\path\\to\\mcp_debug.log",
+         "NOTEBOOKLM_MCP_DEBUG": "true"
+       }
+     }
+   }
+   ```
+
+3. **Restart OpenCode**: The server will now run your local code directly via the Python module. Changes are applied instantly upon server (or OpenCode) restart.
+
+
 ### Gemini CLI (Recommended CLI Method)
 
 Use the built-in CLI command to add the MCP server:
