@@ -363,6 +363,61 @@ class SourceMixin(BaseClient):
 
         raise FileUploadError(filename, "Failed to get SOURCE_ID from registration response")
 
+    def _start_resumable_upload(
+        self,
+        notebook_id: str,
+        filename: str,
+        file_size: int,
+        source_id: str,
+    ) -> str:
+        """Start a resumable upload session and get the upload URL.
+
+        Step 2 of the resumable upload protocol.
+
+        Args:
+            notebook_id: The notebook ID
+            filename: The filename
+            file_size: Size of file in bytes
+            source_id: The SOURCE_ID from step 1
+
+        Returns:
+            The upload URL for step 3
+
+        Raises:
+            FileUploadError: If starting the upload session fails
+        """
+        import json
+
+        url = f"{self.UPLOAD_URL}?authuser=0"
+        cookies = self._get_httpx_cookies()
+
+        headers = {
+            "Accept": "*/*",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Origin": "https://notebooklm.google.com",
+            "Referer": "https://notebooklm.google.com/",
+            "x-goog-authuser": "0",
+            "x-goog-upload-command": "start",
+            "x-goog-upload-header-content-length": str(file_size),
+            "x-goog-upload-protocol": "resumable",
+        }
+
+        body = json.dumps({
+            "PROJECT_ID": notebook_id,
+            "SOURCE_NAME": filename,
+            "SOURCE_ID": source_id,
+        })
+
+        with httpx.Client(timeout=60.0, cookies=cookies) as client:
+            response = client.post(url, headers=headers, content=body)
+            response.raise_for_status()
+
+            upload_url = response.headers.get("x-goog-upload-url")
+            if not upload_url:
+                raise FileUploadError(filename, "Failed to get upload URL from response headers")
+
+            return upload_url
+
     def upload_file(
         self,
         notebook_id: str,
