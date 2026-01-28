@@ -4,7 +4,7 @@
 
 ## 🔄 RESUME HERE - Current Status
 
-**Last Commit:** 51d78e4 - "refactor: extract BaseClient infrastructure class"
+**Last Commit:** 8556d79 - "refactor: Integrate SourceMixin into NotebookLMClient"
 
 **Completed:**
 - ✅ Task 1: utils.py module created and tested (4 tests)
@@ -13,12 +13,20 @@
 - ✅ Task 4: base.py with BaseClient infrastructure (12 tests)
   - NotebookLMClient now inherits from BaseClient
   - ~587 lines of duplicated infrastructure code removed
+- ✅ Task 5: NotebookMixin extracted (7 methods)
+  - list_notebooks, get_notebook, get_notebook_summary, create_notebook, rename_notebook, configure_chat, delete_notebook
+- ✅ Task 6: SharingMixin extracted (3 methods)
+  - get_share_status, set_public_access, add_collaborator
+- ✅ Task 7: SourceMixin extracted (10 methods)
+  - check_source_freshness, sync_drive_source, delete_source, get_notebook_sources_with_types, add_url_source, add_text_source, add_drive_source, upload_file, get_source_guide, get_source_fulltext
 
-**Test Status:** 36 passed, 20 skipped (E2E tests require auth)
+**Test Status:** 45 passed, 20 skipped (E2E tests require auth)
 
-**Next Steps (Future Work - Optional):**
-- Task 5-9: Extract domain-specific mixins (NotebookMixin, SourceMixin, etc.)
-- These are lower priority as the main architectural goal (BaseClient extraction) is complete
+**Reduction:** ~950 lines removed from client.py (now ~2,300 lines, down from 3,260)
+
+**Next Steps:**
+- Task 8: ConversationMixin (query, chat methods)
+- Task 9: StudioMixin (studio content generation)
 
 **Goal:** Decompose the 4,513-line monolithic `NotebookLMClient` class into focused, maintainable modules using a mixin-based architecture while preserving 100% backward compatibility.
 
