@@ -369,7 +369,31 @@ def notebook_add_text(
 
 
 @logged_tool()
+def notebook_add_local_file(
+    notebook_id: str,
+    file_path: str,
+    title: str | None = None,
+) -> dict[str, Any]:
+    """Add a local file (.md, .pdf) as a source with high-fidelity rendering.
+
+    Args:
+        notebook_id: Notebook UUID
+        file_path: Absolute path to the local file
+        title: Optional title for the source
+    """
+    try:
+        client = get_client()
+        result = client.add_local_file_source(notebook_id, file_path=file_path, title=title)
+        if result:
+            return {"status": "success", "source": result}
+        return {"status": "error", "error": "Failed to upload local file"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@logged_tool()
 def notebook_add_drive(
+
     notebook_id: str,
     document_id: str,
     title: str,

@@ -11,7 +11,9 @@ import re
 import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
+
 
 
 import httpx
@@ -51,7 +53,9 @@ RPC_NAMES = {
     "CYK0Xb": "save_mind_map",
     "cFji9": "list_mind_maps",
     "AH0mwd": "delete_mind_map",
+    "o4cbdc": "register_source_file",
 }
+
 
 
 def _format_debug_json(data: Any, max_length: int = 2000) -> str:
@@ -213,8 +217,10 @@ class NotebookLMClient:
     RPC_SETTINGS = "ZwVcOc"
     RPC_GET_SUMMARY = "VfAZjd"  # Get notebook summary and suggested report topics
     RPC_GET_SOURCE_GUIDE = "tr032e"  # Get source guide (AI summary + keyword chips)
+    RPC_REGISTER_SOURCE_FILE = "o4cbdc" # Register uploaded file
 
     # Research RPCs (source discovery)
+
     RPC_START_FAST_RESEARCH = "Ljjv0c"  # Start Fast Research (Web or Drive)
     RPC_START_DEEP_RESEARCH = "QA9ei"   # Start Deep Research (Web only)
     RPC_POLL_RESEARCH = "e3bVqc"        # Poll research results
@@ -2226,7 +2232,8 @@ class NotebookLMClient:
                     self.STUDIO_TYPE_SLIDE_DECK: "slide_deck",
                     self.STUDIO_TYPE_DATA_TABLE: "data_table",
                 }
-                artifact_type = type_map.get(type_code, "unknown")
+                artifact_type = type_map.get(type_code, "unknown") if type_code is not None else "unknown"
+
                 status = "in_progress" if status_code == 1 else "completed" if status_code == 3 else "unknown"
 
                 artifacts.append({
@@ -2911,6 +2918,76 @@ class NotebookLMClient:
         if self._client:
             self._client.close()
             self._client = None
+
+    def _register_file_source(self, notebook_id: str, filename: str) -> str | None:
+        """Register a file source intent and get SOURCE_ID (Step 1)."""
+        params = [[[filename]], notebook_id, [2], [1, None, None, None, None, None, None, None, None, None, [1]]]
+        result = self._call_rpc(self.RPC_REGISTER_SOURCE_FILE, params, f"/notebook/{notebook_id}")
+        def extract_id(data):
+            if isinstance(data, str): return data
+            if isinstance(data, list) and len(data) > 0: return extract_id(data[0])
+            return None
+        return extract_id(result)
+
+    def _start_resumable_upload(self, notebook_id: str, filename: str, file_size: int, source_id: str) -> str | None:
+        """Start a resumable upload session (Step 2)."""
+        url = f"{self.BASE_URL}/upload/_/?authuser=0"
+        cookie_header = "; ".join(f"{k}={v}" for k, v in self.cookies.items())
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Cookie": cookie_header,
+            "Origin": self.BASE_URL,
+            "Referer": f"{self.BASE_URL}/",
+            "x-goog-upload-command": "start",
+            "x-goog-upload-header-content-length": str(file_size),
+            "x-goog-upload-protocol": "resumable",
+        }
+        body = json.dumps({"PROJECT_ID": notebook_id, "SOURCE_NAME": filename, "SOURCE_ID": source_id})
+        response = self._get_client().post(url, headers=headers, content=body)
+        response.raise_for_status()
+        return response.headers.get("x-goog-upload-url")
+
+    def _upload_file_content(self, upload_url: str, content: bytes) -> None:
+        """Upload the file content to the resumable upload URL (Step 3)."""
+        cookie_header = "; ".join(f"{k}={v}" for k, v in self.cookies.items())
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+            "Cookie": cookie_header,
+            "Origin": self.BASE_URL,
+            "Referer": f"{self.BASE_URL}/",
+            "x-goog-upload-command": "upload, finalize",
+            "x-goog-upload-offset": "0",
+        }
+        self._get_client().post(upload_url, headers=headers, content=content).raise_for_status()
+
+    def add_local_file_source(self, notebook_id: str, file_path: str, title: str | None = None) -> dict | None:
+        """Add a local file (.md, .pdf, etc.) as a source using the three-step resumable process."""
+        if not os.path.exists(file_path): raise FileNotFoundError(f"File not found: {file_path}")
+        
+        # Determine filename and extension
+        suffix = Path(file_path).suffix
+        filename = title or Path(file_path).name
+        if not filename.lower().endswith(suffix.lower()): filename += suffix
+        
+        with open(file_path, "rb") as f: content = f.read()
+        
+        try:
+            # 1. Register intent
+            source_id = self._register_file_source(notebook_id, filename)
+            if not source_id: return None
+            
+            # 2. Start upload session
+            upload_url = self._start_resumable_upload(notebook_id, filename, len(content), source_id)
+            if not upload_url: return None
+            
+            # 3. Upload content
+            self._upload_file_content(upload_url, content)
+            
+            return {"id": source_id, "title": filename}
+        except Exception as e:
+            logger.error(f"Failed to upload {suffix} file: {e}")
+            raise
+
 
 
 def extract_cookies_from_chrome_export(cookie_header: str) -> dict[str, str]:
