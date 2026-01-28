@@ -1,5 +1,7 @@
 """Main entry point for NotebookLM MCP."""
-from .server import mcp
+import sys
+from .server import main
 
 if __name__ == "__main__":
-    mcp.run()
+    sys.exit(main())
+

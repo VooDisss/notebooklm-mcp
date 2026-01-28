@@ -11,7 +11,19 @@ from typing import Any
 
 # Redirect stdout to protect MCP channel and monkeypatch FastMCP to prevent CPU spikes
 _stdout, sys.stdout = sys.stdout, sys.stderr
+
+# Optional log file redirection
+_log_file = os.environ.get("NOTEBOOKLM_MCP_LOG_FILE")
+if _log_file:
+    try:
+        _log_fh = open(_log_file, "a", encoding="utf-8")
+        sys.stderr = _log_fh
+        # Also update sys.stdout redirection to point to the file
+        sys.stdout = _log_fh
+    except: pass
+
 try:
+
     import docket.worker, fastmcp.server.server
     async def n(*a,**k): pass
     @asynccontextmanager
