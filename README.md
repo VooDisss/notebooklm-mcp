@@ -55,19 +55,22 @@ Use at your own risk for personal/experimental purposes.
 
 ## Installation
 
+<details open>
+<summary><b>For Humans</b></summary>
+
 Install from PyPI using your preferred Python package manager:
 
-### Using uv (Recommended)
+**Using uv (Recommended)**
 ```bash
 uv tool install notebooklm-mcp-server
 ```
 
-### Using pip
+**Using pip**
 ```bash
 pip install notebooklm-mcp-server
 ```
 
-### Using pipx
+**Using pipx**
 ```bash
 pipx install notebooklm-mcp-server
 ```
@@ -84,6 +87,31 @@ cd notebooklm-mcp
 uv tool install .
 ```
 </details>
+
+**Setup for AI Tools**
+Follow the specific instructions for your environment:
+- [Claude Code](#claude-code-recommended-cli-method)
+- [Cursor / VS Code](#cursor-vs-code-claude-desktop--other-ides)
+- [OpenCode (Local Dev)](#opencode-local-development)
+- [Gemini CLI](#gemini-cli-recommended-cli-method)
+
+</details>
+
+<details>
+<summary><b>For LLM Agents</b></summary>
+
+### Automated Setup Instructions
+
+1. **Install Module**: Run `pip install notebooklm-mcp-server` or `pip install -e .` for development.
+2. **Authentication**: Initialize session by running `notebooklm-mcp-auth`. Use `--visible` if headless extraction fails.
+3. **Configuration**:
+   - Locate the target config (e.g., `~/.config/opencode/opencode.json` for OpenCode).
+   - Use the module entry point: `["python", "-m", "notebooklm_mcp"]`.
+   - Set environment variables: `NOTEBOOKLM_MCP_LOG_FILE`, `NOTEBOOKLM_QUERY_TIMEOUT`.
+4. **Verification**: Execute `python -m notebooklm_mcp notebook_list --max_results 1`.
+
+</details>
+
 
 ## Upgrading
 
@@ -284,17 +312,16 @@ If you are developing the MCP server locally and want to use the source code dir
      "notebooklm": {
        "type": "local",
        "command": ["python", "-m", "notebooklm_mcp"],
-       "environment": {
-         "GEMINI_API_KEY": "YOUR_API_KEY",
-         "NOTEBOOKLM_QUERY_TIMEOUT": "600",
-         "NOTEBOOKLM_MCP_LOG_FILE": "C:\\path\\to\\mcp_debug.log",
-         "NOTEBOOKLM_MCP_DEBUG": "true"
-       }
+        "environment": {
+          "NOTEBOOKLM_QUERY_TIMEOUT": "600",
+          "NOTEBOOKLM_MCP_LOG_FILE": "C:\\path\\to\\mcp_debug.log",
+          "NOTEBOOKLM_MCP_DEBUG": "true"
+        }
      }
    }
    ```
 
-3. **Restart OpenCode**: The server will now run your local code directly via the Python module. Changes are applied instantly upon server restart.
+3. **Restart OpenCode**: The server will now run your local code directly via the Python module. Changes are applied instantly upon server (or OpenCode) restart.
 
 
 ### Gemini CLI (Recommended CLI Method)
@@ -403,7 +430,7 @@ Simply chat with your AI tool (Claude Code, Cursor, Gemini CLI) using natural la
 | Session ID | Per MCP session | Auto-extracted on MCP start |
 
 **v0.1.9+**: The server now automatically handles token expiration:
-1. Refreshes CSRF tokens immediately when expired
+1. Refreshed CSRF tokens immediately when expired
 2. Reloads cookies from disk if updated externally
 3. Runs headless Chrome auth if profile has saved login
 

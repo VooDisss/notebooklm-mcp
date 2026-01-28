@@ -2035,9 +2035,63 @@ Examples:
         default=float(os.environ.get("NOTEBOOKLM_QUERY_TIMEOUT", "120.0")),
         help="Query timeout in seconds (default: 120.0)"
     )
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
     
+    # Check for tool call (first non-flag argument)
+    if unknown and not unknown[0].startswith("-"):
+        import asyncio
+        
+        async def run_tool():
+            tool_name = unknown[0]
+            tools_dict = await mcp.get_tools()
+            target_tool = tools_dict.get(tool_name)
+            
+            if target_tool:
+                # Simple CLI for tools
+                tool_kwargs = {}
+                i = 1
+                while i < len(unknown):
+                    arg = unknown[i]
+                    if arg.startswith("--"):
+                        key = arg[2:].replace("-", "_")
+                        if i + 1 < len(unknown) and not unknown[i+1].startswith("--"):
+                            val = unknown[i+1]
+                            try:
+                                # Try to parse as JSON (for ints, bools, lists)
+                                tool_kwargs[key] = json.loads(val)
+                            except:
+                                tool_kwargs[key] = val
+                            i += 2
+                        else:
+                            # Boolean flag
+                            tool_kwargs[key] = True
+                            i += 1
+                    else:
+                        i += 1
+                
+                try:
+                    # Execute tool
+                    # target_tool.fn is the original function
+                    if asyncio.iscoroutinefunction(target_tool.fn):
+                        result = await target_tool.fn(**tool_kwargs)
+                    else:
+                        result = target_tool.fn(**tool_kwargs)
+                    print(json.dumps(result, indent=2, default=str))
+                    return 0
+                except Exception as e:
+                    print(f"Error executing tool {tool_name}: {e}", file=sys.stderr)
+                    import traceback
+                    traceback.print_exc(file=sys.stderr)
+                    return 1
+            else:
+                print(f"Error: Unknown tool or argument '{tool_name}'", file=sys.stderr)
+                print(f"Available tools: {', '.join(tools_dict.keys())}", file=sys.stderr)
+                return 1
+
+        return asyncio.run(run_tool())
+
     # Update global query timeout from CLI args
+
     global _query_timeout
     _query_timeout = args.query_timeout
     
